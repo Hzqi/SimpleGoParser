@@ -11,7 +11,7 @@ type Location struct {
 func (loc *Location) line() int {
 	current := loc.input[0 : loc.offset+1]
 	var line = 0
-	for _, ch := range current {
+	for _, ch := range []rune(current) {
 		if ch == '\n' {
 			line += 1
 		}
