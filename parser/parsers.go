@@ -6,6 +6,11 @@ import (
 	"strconv"
 )
 
+func RunParser(p Parser, input string) Either {
+	state := NewParseState(*NewLocationDefault(input))
+	return extract(p(state))
+}
+
 func firstNonmatchingIndex(s1, s2 string, offset int) int {
 	i := 0
 	for i < len(s1) &&
@@ -99,24 +104,31 @@ func CharNotIn(cs []rune) Parser {
 	}
 }
 
-func Many1(p Parser) Parser {
-	return p.Map2(Many(p), func(a interface{}, b interface{}) interface{} {
-		if list, ok := a.([]interface{}); ok {
-			return append(list, b)
-		} else {
-			panic("parser result wrong type")
-		}
-	})
+func Many1(p LazyParser) LazyParser {
+	return func() Parser {
+		return p().Map2(Many(p), func(a interface{}, b interface{}) interface{} {
+			if list, ok := a.([]interface{}); ok {
+				return append(list, b)
+			} else {
+				panic("parser result wrong type")
+			}
+		})
+	}
 }
 
-func Many(p Parser) Parser {
-	return p.Map2(Many(p), func(a interface{}, b interface{}) interface{} {
-		if list, ok := a.([]interface{}); ok {
-			return append(list, b)
-		} else {
-			panic("parser result wrong type")
-		}
-	}).Or(Succeed(make([]interface{}, 5)))
+func Many(p LazyParser) LazyParser {
+	lazySucceed := func() Parser{
+		return Succeed(make([]interface{}, 5))
+	}
+	return func() Parser {
+		return p().Map2(Many(p), func(a interface{}, b interface{}) interface{} {
+			if list, ok := a.([]interface{}); ok {
+				return append(list, b)
+			} else {
+				panic("parser result wrong type")
+			}
+		}).Or(lazySucceed)
+	}
 }
 
 func Regex(s string) Parser {
@@ -144,15 +156,18 @@ func Thru(s string) Parser {
 }
 
 func Quoted() Parser {
-	return Str("\"").SkipL(Thru("\"").Map(func(i interface{}) interface{} {
-		if str, ok := i.(string); ok {
-			rs := []rune(str)
-			rs = rs[:len(rs)-1]
-			return string(rs)
-		} else {
-			panic("parser result wrong type")
-		}
-	}))
+	lazy := func() Parser{
+		return Thru("\"").Map(func(i interface{}) interface{} {
+			if str, ok := i.(string); ok {
+				rs := []rune(str)
+				rs = rs[:len(rs)-1]
+				return string(rs)
+			} else {
+				panic("parser result wrong type")
+			}
+		})
+	}
+	return Str("\"").SkipL(lazy)
 }
 
 func Escaped() Parser {
@@ -162,18 +177,23 @@ func Escaped() Parser {
 		}
 	}
 	a := Str("\\\"").Map(becomefunc("\""))
-	b := Str("\\\\").Map(becomefunc("\\"))
-	c := Str("\\/").Map(becomefunc("/"))
-	d := Str("\\b").Map(becomefunc("\b"))
-	e := Str("\\f").Map(becomefunc("\f"))
-	f := Str("\\n").Map(becomefunc("\n"))
-	g := Str("\\r").Map(becomefunc("\r"))
-	h := Str("\\t").Map(becomefunc("\t"))
+	b := func() Parser{return Str("\\\\").Map(becomefunc("\\"))}
+	c := func() Parser{return Str("\\/").Map(becomefunc("/"))}
+	d := func() Parser{return Str("\\b").Map(becomefunc("\b"))}
+	e := func() Parser{return Str("\\f").Map(becomefunc("\f"))}
+	f := func() Parser{return Str("\\n").Map(becomefunc("\n"))}
+	g := func() Parser{return Str("\\r").Map(becomefunc("\r"))}
+	h := func() Parser{return Str("\\t").Map(becomefunc("\t"))}
 	return a.Or(b).Or(c).Or(d).Or(e).Or(f).Or(g).Or(h)
 }
 
 func EscapedQuoted() Parser {
-	p := Many1(Escaped().Or(CharNotIn([]rune("\"\\"))))
+	lazy := func() Parser{
+		return CharNotIn([]rune("\"\\"))
+	}
+	p := Many1(func() Parser {
+		return Escaped().Or(lazy)
+	})
 	return Surround(Str("\""), Str("\""), p).Map(func(i interface{}) interface{} {
 		if list, ok := i.([]interface{}); ok {
 			ss := make([]rune, len(list))
@@ -210,11 +230,20 @@ func Double() Parser {
 }
 
 func Token(p Parser) Parser {
-	return Whitespace().SkipL(p).SkipR(Whitespace())
+	lazy := func() Parser{
+		return Whitespace()
+	}
+	lazyp := func() Parser{
+		return p
+	}
+	return Whitespace().SkipL(lazyp).SkipR(lazy)
 }
 
-func Surround(start, stop, p Parser) Parser {
-	return start.SkipL(p).SkipR(stop)
+func Surround(start, stop Parser, p LazyParser) Parser {
+	lazy := func() Parser{
+		return stop
+	}
+	return start.SkipL(p).SkipR(lazy)
 }
 
 func Eof() Parser {
@@ -222,5 +251,5 @@ func Eof() Parser {
 }
 
 func Root(p Parser) Parser {
-	return p.SkipR(Eof())
+	return p.SkipR(Eof)
 }

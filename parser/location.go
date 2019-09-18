@@ -17,7 +17,7 @@ func NewLocationDefault(input string) *Location {
 
 //记录第几行
 func (loc *Location) line() int {
-	current := loc.input[0 : loc.offset+1]
+	current := loc.input[0 : loc.offset-1]
 	var line = 0
 	for _, ch := range []rune(current) {
 		if ch == '\n' {
@@ -29,7 +29,7 @@ func (loc *Location) line() int {
 
 //记录第几个
 func (loc *Location) col() int {
-	current := loc.input[0 : loc.offset+1]
+	current := loc.input[0 : loc.offset-1]
 	lstIdsNL := strings.LastIndex(current, "\n")
 	if lstIdsNL == -1 {
 		return loc.offset + 1

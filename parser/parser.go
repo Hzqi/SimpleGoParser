@@ -3,6 +3,14 @@ package parser
 //实际上是一个 ParseState => ParseResult 的函数
 type Parser func(state ParseState) ParseResult
 
+type LazyParser func()Parser
+
+func MakeLazyParser(p Parser) func()Parser {
+	return func() Parser {
+		return p
+	}
+}
+
 //添加label，返回一个新的Parser(函数)
 func (p Parser) Label(msg string) Parser {
 	return func(state ParseState) ParseResult {
@@ -51,12 +59,12 @@ func (p Parser) FlatMap(g func(interface{}) Parser) Parser {
 	}
 }
 
-func (p Parser) FlatMap2(p2 Parser, g func(interface{}, interface{}) Parser) Parser {
+func (p Parser) FlatMap2(p2 LazyParser, g func(interface{}, interface{}) Parser) Parser {
 	return func(state ParseState) ParseResult {
 		res1 := p(state)
 		if res1.isSuccess() {
 			state2 := state.advance(res1.getLength())
-			res2 := p2(state2)
+			res2 := p2()(state2)
 			if res2.isSuccess() {
 				//两个都成功时
 				newRes := g(res1.getSuccess(), res2.getSuccess())(state2.advance(res2.getLength()))
@@ -90,13 +98,13 @@ func (p Parser) Map(f func(interface{}) interface{}) Parser {
 	return p.FlatMap(andThen(f, Succeed))
 }
 
-func (p Parser) Map2(p2 Parser, f func(interface{}, interface{}) interface{}) Parser {
+func (p Parser) Map2(p2 LazyParser, f func(interface{}, interface{}) interface{}) Parser {
 	return p.FlatMap2(p2, andThen2(f, Succeed))
 }
 
-func (p Parser) Product(p2 Parser) Parser {
+func (p Parser) Product(p2 LazyParser) Parser {
 	return p.FlatMap(func(i interface{}) Parser {
-		return p2.Map(func(j interface{}) interface{} {
+		return p2().Map(func(j interface{}) interface{} {
 			return Tuple{i, j}
 		})
 	})
@@ -108,41 +116,47 @@ func (p Parser) As(b interface{}) Parser {
 	})
 }
 
-func (p Parser) And(p2 Parser) Parser {
+func (p Parser) And(p2 LazyParser) Parser {
 	return p.FlatMap(func(i interface{}) Parser {
-		return p2
+		return p2()
 	})
 }
 
-func (p Parser) Or(p2 Parser) Parser {
+func (p Parser) Or(p2 LazyParser) Parser {
 	return func(state ParseState) ParseResult {
 		res := p(state)
-		if !res.isSuccess() && !res.isSuccess() {
-			return p2(state)
+		if !res.isSuccess() && !res.isCommitted() {
+			return p2()(state)
 		} else {
 			return res
 		}
 	}
 }
 
-func (p Parser) SkipL(p2 Parser) Parser {
+func (p Parser) SkipL(p2 LazyParser) Parser {
 	return p.Slice().Map2(p2, func(a interface{}, b interface{}) interface{} {
 		return b
 	})
 }
 
-func (p Parser) SkipR(p2 Parser) Parser {
+func (p Parser) SkipR(p2 LazyParser) Parser {
 	return p.Slice().Map2(p2, func(a interface{}, b interface{}) interface{} {
 		return a
 	})
 }
 
-func (p Parser) Sep(p2 Parser) Parser {
-	return p.Sep1(p2).Or(Succeed(make([]interface{}, 5)))
+func (p Parser) Sep(p2 LazyParser) Parser {
+	lazy := func() Parser{
+		return Succeed(Succeed(make([]interface{}, 5)))
+	}
+	return p.Sep1(p2).Or(lazy)
 }
 
-func (p Parser) Sep1(p2 Parser) Parser {
-	return p.Map2(Many(p2.SkipL(p)), func(a interface{}, b interface{}) interface{} {
+func (p Parser) Sep1(p2 LazyParser) Parser {
+	lazy := func() Parser{
+		return p2().SkipL(MakeLazyParser(p))
+	}
+	return p.Map2(lazy, func(a interface{}, b interface{}) interface{} {
 		if list, ok := a.([]interface{}); ok {
 			return append(list, b)
 		} else {
@@ -155,7 +169,10 @@ func (p Parser) ListOfN(n int) Parser {
 	if n <= 0 {
 		return Succeed(make([]interface{}, 5))
 	} else {
-		return p.Map2(p.ListOfN(n-1), func(a interface{}, b interface{}) interface{} {
+		lazy := func() Parser{
+			return p.ListOfN(n-1)
+		}
+		return p.Map2(lazy, func(a interface{}, b interface{}) interface{} {
 			if list, ok := a.([]interface{}); ok {
 				return append(list, b)
 			} else {
