@@ -7,6 +7,14 @@ type Location struct {
 	offset int
 }
 
+func NewLocation(input string, offset int) *Location {
+	return &Location{input, offset}
+}
+
+func NewLocationDefault(input string) *Location {
+	return NewLocation(input, 0)
+}
+
 //记录第几行
 func (loc *Location) line() int {
 	current := loc.input[0 : loc.offset+1]
@@ -30,23 +38,27 @@ func (loc *Location) col() int {
 	}
 }
 
-//TODO
-//func (loc *Location) toError(msg string) ParseError {
-//
-//}
+func (loc *Location) toError(msg string) ParseError {
+	return ParseError{[]LocStr{LocStr{*loc, msg}}}
+}
 
-func (loc *Location) advanceBy(n int) Location {
+func (loc *Location) advanceBy(n int) *Location {
 	newloc := Location{
 		input:  loc.input,
 		offset: loc.offset + n,
 	}
-	return newloc
+	return &newloc
 }
 
 func (loc *Location) currentLine() string {
 	if len(loc.input) > 1 {
-
+		lines := strings.Split(loc.input, "\n")
+		return lines[loc.line()]
 	} else {
 		return ""
 	}
+}
+
+func (loc *Location) columnCaret() string {
+	return strings.Repeat(" ", loc.col()-1) + "^"
 }
