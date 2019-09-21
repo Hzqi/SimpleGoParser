@@ -33,7 +33,7 @@ func getLineAndCol(input string, offset int) (string,int,int) {
 func (pe *ParseError) Error() string {
 	linemsg := fmt.Sprintf(" line:%d col:%d %s",pe.line,pe.col, pe.msg)
 	line := fmt.Sprintf("\t%s",pe.currentLine)
-	blank := strings.Repeat("",pe.col)
+	blank := strings.Repeat(" ",pe.col)
 	mark := fmt.Sprintf("\t%s^",blank)
 	return strings.Join([]string{linemsg,line,mark},"\n")
 }
