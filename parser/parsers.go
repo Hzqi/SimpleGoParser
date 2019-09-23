@@ -71,10 +71,18 @@ func Str(s string) Parser {
 	}
 }
 
+func LazyStr(s string) LazyParser {
+	return MakeLazyParser(Str(s))
+}
+
 //读字符
 func Char(c rune) Parser {
 	s := string(c)
 	return Str(s)
+}
+
+func LazyChar(c rune) LazyParser {
+	return MakeLazyParser(Char(c))
 }
 
 //读字符，存在的字符
@@ -99,6 +107,10 @@ func CharIn(cs []rune) Parser {
 	}
 }
 
+func LazyCharIn(cs []rune) LazyParser {
+	return MakeLazyParser(CharIn(cs))
+}
+
 //读字符，不存在字符
 func CharNotIn(cs []rune) Parser {
 	return func(state ParseState) ParseResult {
@@ -119,6 +131,10 @@ func CharNotIn(cs []rune) Parser {
 		s := string(char)
 		return &Success{s, len(s)}
 	}
+}
+
+func LazyCharNotIn(cs []rune) LazyParser {
+	return MakeLazyParser(CharNotIn(cs))
 }
 
 //读一个或多个的Parser

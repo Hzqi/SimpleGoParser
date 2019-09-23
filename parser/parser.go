@@ -154,18 +154,24 @@ func (p Parser) SkipR(p2 LazyParser) Parser {
 
 //Parser[List[A]]
 //后面跟随的，0个或多个
-func (p Parser) Sep(p2 LazyParser, f mapFunc2) Parser {
-	p3 := func() Parser{
-		return p.And(p2,f)
-	}
-	return Many(p3)
+func (p Parser) Sep(p2 LazyParser) Parser {
+	var list = make([]interface{},0)
+	return p.Sep1(p2).Or(MakeLazyParser(Succeed(list)))
 }
 
 //Parser[List[A]]
 //后面跟随的，1个或多个
-func (p Parser) Sep1(p2 LazyParser, f mapFunc2) Parser {
-	p3 := func() Parser{
-		return p.And(p2,f)
-	}
-	return Many1(p3)
+func (p Parser) Sep1(p2 LazyParser) Parser {
+	loop := p2().SkipL(MakeLazyParser(p))
+	many := MakeLazyParser(
+		Many(MakeLazyParser(loop)))
+	return p.Map2(many, func(a interface{}, b interface{}) interface{} {
+		if list,ok:= b.([]interface{});ok{
+			newList := []interface{}{a}
+			newList = append(newList, list...)
+			return newList
+		} else {
+			panic("parse value wrong type")
+		}
+	})
 }

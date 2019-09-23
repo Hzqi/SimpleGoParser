@@ -17,11 +17,11 @@ func NewParseError(currentLine , msg string, line,col int) ParseError {
 }
 
 func getLineAndCol(input string, offset int) (string,int,int) {
-	currInput := input[offset : ]
+	currInput := input[0 : offset + 1]
 	currInputs := strings.Split(currInput,"\n")
 	lineCount := len(currInputs)
 	line := currInputs[lineCount - 1]
-	col := strings.LastIndex(currInput,"\n")
+	col := strings.LastIndex(line,"\n")
 	if col == -1 {
 		col = offset + 1
 	} else {

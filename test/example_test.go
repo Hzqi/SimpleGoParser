@@ -1,6 +1,7 @@
 package test
 
 import (
+	"SimpleGoParser/example"
 	"SimpleGoParser/parser"
 	"testing"
 )
@@ -42,4 +43,29 @@ func manyRoot() parser.Parser {
 func TestExample(t *testing.T) {
 	input := "{{}{}{}}"
 	t.Log(RunParser(root(),input))
+}
+
+func TestJson(t *testing.T) {
+	input := `
+	 {
+		"name":"jacky",
+		"age":123,
+		"gender":true,
+		"nulls": null,
+ 		"object":{
+            "aaa":"aaa",
+            "bbb":"bbb"
+		},
+		"arrays":[1,   2,   3,     4     ],
+		"nulls": null,
+		"str":"abc\"aaa\"",
+		"cn_Name":"中文名"
+	 }
+`
+	res,err := parser.RunParser(example.RootWithBlank(), input)
+	if err != nil {
+		t.Log(err.Error())
+	} else {
+		t.Log(res)
+	}
 }
