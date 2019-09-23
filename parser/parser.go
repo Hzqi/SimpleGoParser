@@ -51,12 +51,15 @@ func (p Parser) Slice() Parser {
 	return func(state ParseState) ParseResult {
 		res := p(state)
 		if res.isSuccess(){
-			if v,ok := res.getSuccess().(string); ok {
-				newStr := v[res.getLength():]
-				return &Success{newStr,res.getLength()}
-			} else {
-				panic("parse value wrong type")
-			}
+			// if v,ok := res.getSuccess().(string); ok {
+			// 	newStr := v[res.getLength():]
+			// 	return &Success{newStr,res.getLength()}
+			// } else {
+			// 	panic("parse value wrong type")
+			// }
+			length := res.getLength()
+			newStr := state.loc.input[state.loc.offset : state.loc.offset + length]
+			return &Success{newStr, length}
 		} else {
 			return res
 		}
@@ -110,7 +113,7 @@ func (p Parser) Product(p2 LazyParser) Parser {
 
 //Parser[B]
 func (p Parser) As(b interface{}) Parser {
-	return p.Slice().Slice().Map(func(i interface{}) interface{} {
+	return p.Slice().Map(func(i interface{}) interface{} {
 		return b
 	})
 }
